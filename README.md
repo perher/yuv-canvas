@@ -14,6 +14,9 @@ MIT license, see the source files:
 
 #Updates
 
+1.2.2 - 2018-01-23
+* support for BT.709 colorspace
+
 1.2.1 - 2018-01-18
 * fix regression breaking iOS 9
 

@@ -2,6 +2,7 @@
 module.exports = {
   vertex: "precision lowp float;\n\nattribute vec2 aPosition;\nattribute vec2 aLumaPosition;\nattribute vec2 aChromaPosition;\nvarying vec2 vLumaPosition;\nvarying vec2 vChromaPosition;\nvoid main() {\n    gl_Position = vec4(aPosition, 0, 1);\n    vLumaPosition = aLumaPosition;\n    vChromaPosition = aChromaPosition;\n}\n",
   fragment: "// inspired by https://github.com/mbebenita/Broadway/blob/master/Player/canvas.js\n\nprecision lowp float;\n\nuniform sampler2D uTextureY;\nuniform sampler2D uTextureCb;\nuniform sampler2D uTextureCr;\nvarying vec2 vLumaPosition;\nvarying vec2 vChromaPosition;\nvoid main() {\n   // Y, Cb, and Cr planes are uploaded as LUMINANCE textures.\n   float fY = texture2D(uTextureY, vLumaPosition).x;\n   float fCb = texture2D(uTextureCb, vChromaPosition).x;\n   float fCr = texture2D(uTextureCr, vChromaPosition).x;\n\n   // Premultipy the Y...\n   float fYmul = fY * 1.1643828125;\n\n   // And convert that to RGB!\n   gl_FragColor = vec4(\n     fYmul + 1.59602734375 * fCr - 0.87078515625,\n     fYmul - 0.39176171875 * fCb - 0.81296875 * fCr + 0.52959375,\n     fYmul + 2.017234375   * fCb - 1.081390625,\n     1\n   );\n}\n",
+  fragment709: "precision lowp float;\n\nuniform sampler2D uTextureY;\nuniform sampler2D uTextureCb;\nuniform sampler2D uTextureCr;\nvarying vec2 vLumaPosition;\nvarying vec2 vChromaPosition;\nvoid main() {\n   // Y, Cb, and Cr planes are uploaded as LUMINANCE textures.\n   float fY = texture2D(uTextureY, vLumaPosition).x - 0.0625;\n   float fCb = texture2D(uTextureCb, vChromaPosition).x - 0.5;\n   float fCr = texture2D(uTextureCr, vChromaPosition).x - 0.5;\n\n   // Premultipy the Y...\n   float fYmul = fY * 1.1643828125;\n\n   // And convert that to RGB!\n   gl_FragColor = vec4(\n     fYmul + 1.8330672 * fCr,\n     fYmul - 0.2180455 * fCb - 0.5448967 * fCr,\n     fYmul + 2.1599184 * fCb,\n     1\n   );\n}\n",
   vertexStripe: "precision lowp float;\n\nattribute vec2 aPosition;\nattribute vec2 aTexturePosition;\nvarying vec2 vTexturePosition;\n\nvoid main() {\n    gl_Position = vec4(aPosition, 0, 1);\n    vTexturePosition = aTexturePosition;\n}\n",
   fragmentStripe: "// extra 'stripe' texture fiddling to work around IE 11's poor performance on gl.LUMINANCE and gl.ALPHA textures\n\nprecision lowp float;\n\nuniform sampler2D uStripe;\nuniform sampler2D uTexture;\nvarying vec2 vTexturePosition;\nvoid main() {\n   // Y, Cb, and Cr planes are mapped into a pseudo-RGBA texture\n   // so we can upload them without expanding the bytes on IE 11\n   // which doesn't allow LUMINANCE or ALPHA textures\n   // The stripe textures mark which channel to keep for each pixel.\n   // Each texture extraction will contain the relevant value in one\n   // channel only.\n\n   float fLuminance = dot(\n      texture2D(uStripe, vTexturePosition),\n      texture2D(uTexture, vTexturePosition)\n   );\n\n   gl_FragColor = vec4(fLuminance, fLuminance, fLuminance, 1);\n}\n"
 };
@@ -608,9 +609,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	 * @param {HTMLCanvasElement} canvas - HTML canvas element to attach to
 	 * @constructor
 	 */
-	function WebGLFrameSink(canvas) {
+	function WebGLFrameSink(canvas, options) {
+		options = options || {};
 		var self = this,
 			gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl'),
+			colorspace = options.colorspace || 'rec601',
 			debug = false; // swap this to enable more error checks, which can slow down rendering
 
 		if (gl === null) {
@@ -889,7 +892,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 				stripeLocation = gl.getUniformLocation(unpackProgram, 'uStripe');
 				unpackTextureLocation = gl.getUniformLocation(unpackProgram, 'uTexture');
 			}
-			program = initProgram(shaders.vertex, shaders.fragment);
+			if (colorspace == "rec709") {
+				program = initProgram(shaders.vertex, shaders.fragment709);
+			} else {
+				program = initProgram(shaders.vertex, shaders.fragment);
+			}
 
 			buf = gl.createBuffer();
 			gl.bindBuffer(gl.ARRAY_BUFFER, buf);

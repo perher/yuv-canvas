@@ -30,9 +30,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	 * @param {HTMLCanvasElement} canvas - HTML canvas element to attach to
 	 * @constructor
 	 */
-	function WebGLFrameSink(canvas) {
+	function WebGLFrameSink(canvas, options) {
+		options = options || {};
 		var self = this,
 			gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl'),
+			colorspace = options.colorspace || 'rec601',
 			debug = false; // swap this to enable more error checks, which can slow down rendering
 
 		if (gl === null) {
@@ -311,7 +313,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 				stripeLocation = gl.getUniformLocation(unpackProgram, 'uStripe');
 				unpackTextureLocation = gl.getUniformLocation(unpackProgram, 'uTexture');
 			}
-			program = initProgram(shaders.vertex, shaders.fragment);
+			if (colorspace == "rec709") {
+				program = initProgram(shaders.vertex, shaders.fragment709);
+			} else {
+				program = initProgram(shaders.vertex, shaders.fragment);
+			}
 
 			buf = gl.createBuffer();
 			gl.bindBuffer(gl.ARRAY_BUFFER, buf);
